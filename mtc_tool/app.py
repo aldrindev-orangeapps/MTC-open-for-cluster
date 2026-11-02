@@ -196,7 +196,7 @@ class Application:
                     self.set_busy(False)
                     self.status.set("Completed. Your Excel report is ready.")
                     self.summary.set(f"{value.input_rows:,} raw rows  →  {value.output_rows:,} report rows\n"
-                                     f"{value.excluded_rows:,} zero-served rows excluded\n\n{value.path.name}")
+                                     f"{value.excluded_rows:,} zero-served rows excluded")
                     self.open_file_button.configure(state="normal")
                     self.open_folder_button.configure(state="normal")
                 elif kind == "error":
