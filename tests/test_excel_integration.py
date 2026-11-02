@@ -73,6 +73,19 @@ class ExcelAcceptanceTests(unittest.TestCase):
         finally:
             expected.close()
 
+    def test_original_raw_can_be_regenerated_directly_without_report_copy(self):
+        from mtc_tool.reconcile import compare_reports
+        path = self.fixtures / "MTC OUTPUT.xlsx"
+        result = generate(path, "RAW", self.folder, path)
+        comparison = compare_reports(path, result.path)
+        self.assertTrue(comparison.matches)
+        self.assertTrue(comparison.order_matches)
+        self.assertEqual(comparison.duplicate_candidate, [])
+        self.assertEqual(result.input_rows, 215)
+        self.assertEqual(result.output_rows, 206)
+        self.assertEqual(comparison.totals(comparison.actual)["PO QTY"], 893)
+        self.assertAlmostEqual(comparison.totals(comparison.actual)["NET AMOUNT"], 2196884.22)
+
     def test_zero_served_and_partial_served_rules(self):
         path = self.folder / "raw.xlsx"
         for served, count in ((0, 0), (1, 1)):

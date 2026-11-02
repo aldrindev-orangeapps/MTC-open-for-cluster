@@ -7,7 +7,8 @@ and working. The packaged EXE does not require Python.
 ## Use
 
 1. Open `dist/MTC Open Order.exe`.
-2. Click **Browse…** and select the customer open order `.xlsx` export.
+2. Click **Browse…** and select the customer open order `.xlsx` export, or a
+   workbook containing its original `RAW` sheet.
 3. If multiple worksheets match, select the one to process.
 4. Click **Generate Output**, then **Open File** or **Open Folder**.
 
@@ -16,6 +17,20 @@ unique timestamp. Source files are never overwritten. The interface shows input,
 report, and excluded row counts. You can open an output in Excel and edit RAW;
 the report formulas still work. Row inclusion is determined at generation time;
 generate again if records are added or served quantities change.
+
+The selected source determines which transactions exist. An export with 173
+records cannot reproduce an original whose RAW sheet contains 215 different
+records. To reproduce an existing final report, select the workbook containing
+its complete RAW source and choose `RAW`. Only RAW source fields are imported;
+OPEN TEMPLATE report rows are never copied or merged into the selected source.
+If that workbook has updated lookup data, also select it in reference Settings.
+
+After generation, **Compare with Original…** compares all 42 report columns,
+matches records using **PO REF # + UNIQUE CODE + MATERIAL CODE**, and saves an
+Excel audit containing missing/extra records, changed cells, duplicates, totals,
+and their original/selected raw source row evidence. A successful generation
+means the selected source was converted; use this comparison to establish that
+it also matches a particular original final report.
 
 **Settings** lets you change the output folder or select an updated reference
 workbook containing `CENSUS`, `SKU`, and `SKU MASTER LIST` in the original layout.
@@ -30,7 +45,10 @@ processing; cached values in reference formulas must be current.
 ## Confirmed conversion rules
 
 - Raw source headers are on row 1. All 35 fields are required; header order may
-  change, but duplicate required headers are rejected. Source formulas are rejected.
+  change. Duplicate required headers are rejected except for the complete known
+  embedded RAW layout: its A column is the calculated warehouse label and B:AJ
+  holds the 35 original fields. In that layout B supplies the warehouse key;
+  A's lookup formula is ignored. Source formulas in imported fields are rejected.
 - All raw records go to RAW B:AJ. RAW A uses the warehouse lookup in SKU M:N.
 - OPEN TEMPLATE retains records with **SERVED QTY != 0**, including negative
   quantities, in source order. No grouping or deduplication is applied.
@@ -92,3 +110,16 @@ Acceptance includes 173 → 164 supplied raw records and all 42 columns of the
 215 → 206 sample regression, with numeric tolerance for Excel floating-point
 values. Generated files are recalculated in a private Excel instance, checked
 for report formula errors, and published only after those checks pass.
+
+You can also save a reconciliation without the GUI:
+
+```powershell
+.\.venv\Scripts\python -m mtc_tool.reconcile ORIGINAL.xlsx GENERATED.xlsx --output audit.xlsx --source RAW_EXPORT.xlsx
+```
+
+`--source` is optional; it adds evidence showing whether missing/extra keys exist
+in the selected export and in the original workbook's RAW sheet. With source
+tracing, the original must include its RAW and SKU sheets. Inputs are read-only.
+Duplicate records are compared with their multiplicities rather than silently
+deduplicated. Monetary differences use a 0.000001 absolute / 1e-10 relative
+tolerance; the report retains the original calculation and rounding rules.

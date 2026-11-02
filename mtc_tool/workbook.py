@@ -93,6 +93,26 @@ def header_columns(ws) -> dict[str, list[int]]:
     return columns
 
 
+def source_columns(ws) -> dict[str, int]:
+    """Resolve an export, or the original workbook's RAW B:AJ source block.
+
+    In the latter layout column A is a calculated warehouse label, while B
+    contains the original warehouse key. Only this complete, recognized layout
+    may disambiguate the duplicate WAREHOUSE header; never guess for other files.
+    """
+    columns = header_columns(ws)
+    missing = [h for h in RAW_HEADERS if h not in columns]
+    if missing:
+        raise WorkbookError("Missing raw columns: " + ", ".join(missing))
+    headers = [normalized_header(c.value) for c in next(ws.iter_rows(min_row=1, max_row=1))]
+    embedded_layout = headers[:36] == ["WAREHOUSE", *RAW_HEADERS]
+    duplicates = [h for h in RAW_HEADERS if len(columns[h]) > 1
+                  and not (h == "WAREHOUSE" and embedded_layout and columns[h] == [1, 2])]
+    if duplicates:
+        raise WorkbookError("Ambiguous duplicate raw columns: " + ", ".join(duplicates))
+    return {h: (2 if h == "WAREHOUSE" and embedded_layout else columns[h][0]) for h in RAW_HEADERS}
+
+
 def discover_sheets(path: Path) -> list[str]:
     wb = open_xlsx(path, read_only=True)
     try:
@@ -164,14 +184,8 @@ def prepare_data(raw_path: Path, sheet: str, reference_path: Path | None = None)
         if sheet not in raw_wb.sheetnames:
             raise WorkbookError(f"Worksheet not found: {sheet}")
         ws = raw_wb[sheet]
-        columns = header_columns(ws)
-        missing = [h for h in RAW_HEADERS if h not in columns]
-        if missing:
-            raise WorkbookError("Missing raw columns: " + ", ".join(missing))
-        duplicates = [h for h in RAW_HEADERS if len(columns[h]) > 1]
-        if duplicates:
-            raise WorkbookError("Ambiguous duplicate raw columns: " + ", ".join(duplicates))
-        indices = [columns[h][0] - 1 for h in RAW_HEADERS]
+        columns = source_columns(ws)
+        indices = [columns[h] - 1 for h in RAW_HEADERS]
         ref_wb = open_xlsx(reference_path or bundled_template(), data_only=True, read_only=True)
         validate_reference(ref_wb)
         warehouses = first_lookup(ref_wb["SKU"], 13, 3)

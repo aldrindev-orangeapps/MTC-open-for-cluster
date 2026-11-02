@@ -8,6 +8,7 @@ from pathlib import Path
 from tkinter import filedialog, messagebox, ttk
 
 from .generator import generate
+from .reconcile import compare_reports, save_comparison
 from .settings import Settings
 from .workbook import (ValidationError, WorkbookError, discover_sheets, export_issues,
                        open_xlsx, validate_reference)
@@ -34,7 +35,7 @@ class Application:
         self.folder_label = tk.StringVar()
         self.update_settings_labels()
         root.title("MTC Open Order")
-        root.geometry("1000x700")
+        root.geometry("1000x700+40+0")
         root.minsize(860, 680)
         root.configure(bg=BG)
         root.protocol("WM_DELETE_WINDOW", self.close)
@@ -118,6 +119,8 @@ class Application:
         self.open_file_button.pack(side="left", padx=(0, 10))
         self.open_folder_button = ttk.Button(buttons, text="Open Folder", command=self.open_folder, state="disabled")
         self.open_folder_button.pack(side="left")
+        self.compare_button = ttk.Button(buttons, text="Compare with Original…", command=self.compare_output, state="disabled")
+        self.compare_button.pack(side="left", padx=(10, 0))
         ttk.Label(page, textvariable=self.folder_label, style="Muted.TLabel",
                   wraplength=880).pack(anchor="w", pady=(16, 0))
 
@@ -132,6 +135,7 @@ class Application:
         self.settings_button.configure(state=state)
         self.generate_button.configure(state="normal" if not busy and self.sheet.get() else "disabled")
         self.sheet_picker.configure(state="readonly" if not busy and self.sheet.get() else "disabled")
+        self.compare_button.configure(state="normal" if not busy and self.result else "disabled")
 
     def browse(self):
         path = filedialog.askopenfilename(parent=self.root, title="Select customer open order export",
@@ -142,6 +146,7 @@ class Application:
         self.summary.set("Your completed report will appear here.")
         self.open_file_button.configure(state="disabled")
         self.open_folder_button.configure(state="disabled")
+        self.compare_button.configure(state="disabled")
         self.raw_path.set(path)
         self.sheet.set("")
         self.sheet_picker.configure(values=())
@@ -152,7 +157,7 @@ class Application:
             try:
                 sheets = discover_sheets(Path(path))
                 if not sheets:
-                    raise WorkbookError("No worksheet has all 35 required raw headers on row 1. Select the original raw export.")
+                    raise WorkbookError("No worksheet has all 35 required raw headers on row 1. Select a raw export or a workbook containing its RAW sheet.")
                 self.events.put(("sheets", sheets))
             except Exception as exc:
                 self.events.put(("error", exc))
@@ -195,10 +200,23 @@ class Application:
                     self.result = value
                     self.set_busy(False)
                     self.status.set("Completed. Your Excel report is ready.")
-                    self.summary.set(f"{value.input_rows:,} raw rows  →  {value.output_rows:,} report rows\n"
+                    self.summary.set(f"Source sheet: {value.sheet}  |  {value.input_rows:,} raw rows  →  {value.output_rows:,} report rows\n"
                                      f"{value.excluded_rows:,} zero-served rows excluded")
                     self.open_file_button.configure(state="normal")
                     self.open_folder_button.configure(state="normal")
+                elif kind == "comparison":
+                    result, path = value
+                    self.set_busy(False)
+                    title = "Reports match" if result.matches else "Reports differ"
+                    text = (f"Original: {len(result.expected):,} rows; generated: {len(result.actual):,} rows\n"
+                            f"Missing: {len(result.missing)}; extra: {len(result.extra)}; changed cells: {len(result.differences)}\n\n"
+                            f"Audit saved to:\n{path}")
+                    self.status.set(title + ". Reconciliation audit saved.")
+                    (messagebox.showinfo if result.matches else messagebox.showwarning)(title, text, parent=self.root)
+                elif kind == "comparison_error":
+                    self.set_busy(False)
+                    self.status.set("Comparison failed. Your generated report is still available.")
+                    messagebox.showerror("Cannot compare reports", str(value), parent=self.root)
                 elif kind == "error":
                     self.set_busy(False)
                     self.progress["value"] = 0
@@ -211,6 +229,31 @@ class Application:
         except queue.Empty:
             pass
         self.root.after(100, self.poll)
+
+    def compare_output(self):
+        if self.busy or not self.result:
+            return
+        original = filedialog.askopenfilename(parent=self.root, title="Select original correct report",
+                                              filetypes=[("Excel workbook", "*.xlsx")])
+        if not original:
+            return
+        name = filedialog.asksaveasfilename(parent=self.root, title="Save reconciliation audit",
+                                           defaultextension=".xlsx", initialfile="MTC reconciliation.xlsx",
+                                           filetypes=[("Excel workbook", "*.xlsx")])
+        if not name:
+            return
+        source = Path(self.raw_path.get())
+        candidate, sheet = self.result.path, self.result.sheet
+        self.set_busy(True)
+        self.status.set("Comparing records and tracing source rows…")
+        def work():
+            try:
+                result = compare_reports(Path(original), candidate)
+                save_comparison(result, Path(name), source, sheet)
+                self.events.put(("comparison", (result, Path(name))))
+            except Exception as exc:
+                self.events.put(("comparison_error", exc))
+        threading.Thread(target=work, daemon=True).start()
 
     def show_issues(self, error: ValidationError):
         window = tk.Toplevel(self.root)

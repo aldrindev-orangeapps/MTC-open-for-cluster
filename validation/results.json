@@ -1,0 +1,56 @@
+{
+  "regenerated": "C:\\Users\\Administrator\\Documents\\MTC Open Order\\Outputs\\MTC OUTPUT_MTC_Output_20261102_124010_741157.xlsx",
+  "before": {
+    "original_rows": 206,
+    "generated_rows": 164,
+    "missing": 44,
+    "extra": 2,
+    "changed_cells": 0,
+    "totals_original": {
+      "PO QTY": 893.0,
+      "SRV QTY": 893.0,
+      "UNSERVED QTY": 0.0,
+      "FINAL QTY": 893.0,
+      "LPBT CASE": 623247.5214285714,
+      "VAT EX LPBT": 2137323.6617857143,
+      "LPAT": 698037.0,
+      "VAT IN": 2393802.5012000003,
+      "NET PRICE": 678943.67,
+      "NET AMOUNT": 2196884.22,
+      "NET AMOUNT VAT EX": 2196884.22
+    },
+    "totals_generated": {
+      "PO QTY": 711.0,
+      "SRV QTY": 711.0,
+      "UNSERVED QTY": 0.0,
+      "FINAL QTY": 711.0,
+      "LPBT CASE": 515103.4267857143,
+      "VAT EX LPBT": 2260491.072857143,
+      "LPAT": 576915.62,
+      "VAT IN": 2531750.0016,
+      "NET PRICE": 568159.68,
+      "NET AMOUNT": 2317175.63,
+      "NET AMOUNT VAT EX": 2317175.63
+    }
+  },
+  "after": {
+    "matches": true,
+    "rows": 206,
+    "missing": 0,
+    "extra": 0,
+    "changed_cells": 0,
+    "totals": {
+      "PO QTY": 893.0,
+      "SRV QTY": 893.0,
+      "UNSERVED QTY": 0.0,
+      "FINAL QTY": 893.0,
+      "LPBT CASE": 623247.5214285714,
+      "VAT EX LPBT": 2137323.6617857143,
+      "LPAT": 698037.0,
+      "VAT IN": 2393802.5012000003,
+      "NET PRICE": 678943.67,
+      "NET AMOUNT": 2196884.22,
+      "NET AMOUNT VAT EX": 2196884.22
+    }
+  }
+}

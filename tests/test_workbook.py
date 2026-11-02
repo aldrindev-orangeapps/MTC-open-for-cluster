@@ -90,6 +90,30 @@ class WorkbookTests(unittest.TestCase):
         self.assertEqual(discover_sheets(self.raw), ["Orders", "Second"])
         self.assertEqual(prepare_data(self.raw, "Second").records[0].get("WAREHOUSE"), "MT01 DELCO PASIG")
 
+    def test_embedded_raw_uses_original_warehouse_not_calculated_column(self):
+        wb = Workbook()
+        wb.active.title = "RAW"
+        wb.active.append(["WAREHOUSE", *RAW_HEADERS, "LEAD TIME", "look up"])
+        wb.active.append(['=IFERROR(VLOOKUP(B2,SKU!M:N,2,FALSE),0)', *sample_row()])
+        wb.save(self.raw)
+        wb.close()
+        data = prepare_data(self.raw, "RAW")
+        self.assertEqual(data.records[0].get("WAREHOUSE"), "MT01 DELCO PASIG")
+        self.assertEqual(data.records[0].get("PO DATE"), "10/20/2026")
+        self.assertEqual(len(data.retained), 1)
+
+    def test_other_duplicate_headers_are_still_rejected(self):
+        save_raw(self.raw, [sample_row() + ["other"]], [*RAW_HEADERS, "WAREHOUSE"])
+        with self.assertRaisesRegex(WorkbookError, "Ambiguous duplicate"):
+            prepare_data(self.raw, "Orders")
+        wb = Workbook()
+        wb.active.append(["WAREHOUSE", *RAW_HEADERS, "PO QTY"])
+        wb.active.append(["computed", *sample_row(), 99])
+        wb.save(self.raw)
+        wb.close()
+        with self.assertRaisesRegex(WorkbookError, "Ambiguous duplicate"):
+            prepare_data(self.raw, "Sheet")
+
     def test_missing_lookup_and_bad_data_report_source_rows(self):
         row = sample_row()
         row[0] = "UNKNOWN WAREHOUSE"
